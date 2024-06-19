@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8476656946968167800}
   m_Layer: 0
-  m_Name: Hand cards
+  m_Name: HandCards
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -41,7 +41,7 @@ GameObject:
   m_Component:
   - component: {fileID: 155359897887604816}
   m_Layer: 0
-  m_Name: Extra cards
+  m_Name: ExtraCards
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -73,7 +73,7 @@ GameObject:
   - component: {fileID: 338175159168561884}
   - component: {fileID: 3103958289924163749}
   m_Layer: 0
-  m_Name: Activity field
+  m_Name: ActivityField
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -157,7 +157,7 @@ GameObject:
   - component: {fileID: 531506089913352070}
   - component: {fileID: 4570872214840278017}
   m_Layer: 0
-  m_Name: Player field
+  m_Name: PlayerField
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

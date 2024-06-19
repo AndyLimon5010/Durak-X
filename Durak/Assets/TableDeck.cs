@@ -8,8 +8,8 @@ public class TableDeck : MonoBehaviour
     [SerializeField]
     private GameObject _secretTrumpShirt;
 
-    private readonly string _trumpCardsGoName = "Trump cards";
-    private readonly string _faceDownCardsGoName = "Face down cards";
+    private readonly string _trumpCardsGoName = "TrumpCards";
+    private readonly string _faceDownCardsGoName = "FaceDownCards";
 
     private List<GameObject> _faceDownCardsGos = new();
     private List<GameObject> _trumpCardsGos = new();

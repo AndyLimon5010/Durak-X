@@ -5,6 +5,7 @@ using UnityEngine;
 public class PlayerField : MonoBehaviour
 {
     public static Action<PlayerField> PlayerDroppedOut;
+    public static Action PlayerEndedMove;
 
     [SerializeField]
     private List<GameObject> _shirtGo;
@@ -13,8 +14,8 @@ public class PlayerField : MonoBehaviour
     private SpriteRenderer _activityFieldSpriteRenderer;
 
     private readonly int _maxHandCardCount = 6;
-    private readonly string _handCardsGoName = "Hand cards";
-    private readonly string _extraCardsGoName = "Extra cards";
+    private readonly string _handCardsGoName = "HandCards";
+    private readonly string _extraCardsGoName = "ExtraCards";
 
     private bool _isAttack = false;
     private bool _isDefense = false;
@@ -32,22 +33,21 @@ public class PlayerField : MonoBehaviour
     }
     private void OnEnable()
     {
-        Draggable.CardAttacked += CardAttackedHandler;
+        Playfield.CardAttacked += CardAttackedHandler;
+        Playfield.CardDefended += CardDefendedHandler;
         Playfield.AllCardsDefended += AllCardsDefendedHandler;
-        PlayerButton.AttackSkipping += AttackSkippingHandle;
-        GameTable.MoveStarted += MoveStartedHandler;
+        Playfield.LimitingMove += LimitingMoveHandler;
+        PlayerButton.MoveSkipping += MoveSkippingHandle;
+        GameTable.MoveEnded += MoveEndedHandler;
     }
     private void OnDisable()
     {
-        Draggable.CardAttacked -= CardAttackedHandler;
+        Playfield.CardAttacked -= CardAttackedHandler;
+        Playfield.CardDefended -= CardDefendedHandler;
         Playfield.AllCardsDefended -= AllCardsDefendedHandler;
-        PlayerButton.AttackSkipping -= AttackSkippingHandle;
-        GameTable.MoveStarted -= MoveStartedHandler;
-    }
-
-    public void SetCardsDraggableHandler(bool value)
-    {
-        SetCardsDraggable(value);
+        Playfield.LimitingMove -= LimitingMoveHandler;
+        PlayerButton.MoveSkipping -= MoveSkippingHandle;
+        GameTable.MoveEnded -= MoveEndedHandler;
     }
 
     public void AddCards(List<GameObject> cardGos)
@@ -73,7 +73,7 @@ public class PlayerField : MonoBehaviour
     }
     public List<int> FindMinCardValues()
     {
-        List<int> minCardsValues = new() { 15, 15, 15, 15};
+        List<int> minCardsValues = new() { 15, 15, 15, 15 };
 
         for (int i = 0; i < _handCards.Count; i++)
         {
@@ -106,10 +106,6 @@ public class PlayerField : MonoBehaviour
     public void SetAttack(bool value)
     {
         SetStatus(out _isAttack, value);
-    }
-    public void SetCardPositions()
-    {
-        SetHandCardPositions();
     }
     public void SetDefense(bool value)
     {
@@ -145,7 +141,7 @@ public class PlayerField : MonoBehaviour
             SetCardsDraggable(true);
         }
     }
-    private void AttackSkippingHandle()
+    private void MoveSkippingHandle()
     {
         if (_isAttack == false && _isDefense == false)
         {
@@ -153,42 +149,71 @@ public class PlayerField : MonoBehaviour
             _playerButton.SetStatus(1);
         }
     }
-    private void CardAttackedHandler()
+    private void CardAttackedHandler(GameObject cardGo)
+    {
+        MoveCards(cardGo);
+    }
+    private void CardDefendedHandler(GameObject cardGo)
+    {
+        MoveCards(cardGo);
+    }
+    private void LimitingMoveHandler()
+    {
+        if (_isAttack == true)
+        {
+            SetCardsDraggable(false);
+        }
+    }
+    private void MoveEndedHandler()
+    {
+        _playerButton.SetStatus(0);
+        if (_handCardsGos.Count == 0)
+        {
+            if (_extraCardsGos.Count != 0)
+            {
+                for (int i = 0; i < _extraCardsGos.Count; i++)
+                {
+                    _handCardsGos.Add(_extraCardsGos[i]);
+                    _handCardsGos[i].SetActive(true);
+                }
+
+                _extraCardsGos.Clear();
+                SetHandCardPositions();
+
+                for (int i = 0; i < _shirtGo.Count; i++)
+                {
+                    _shirtGo[i].SetActive(false);
+                }
+            }
+            else if (_extraCardsGos.Count == 0)
+            {
+                PlayerDroppedOut?.Invoke(this);
+                gameObject.SetActive(false);
+            }
+        }
+        PlayerEndedMove?.Invoke();
+    }
+
+    private void MoveCards(GameObject cardGo)
     {
         if (_isDefense == true)
         {
+            _handCardsGos.Remove(cardGo);
+            SetHandCardPositions();
+
             _playerButton.SetStatus(2);
         }
         if (_isAttack == true)
         {
+            if (_handCardsGos.Contains(cardGo))
+            {
+                _handCardsGos.Remove(cardGo);
+                SetHandCardPositions();
+            }
+
             _playerButton.SetStatus(0);
         }
     }
-    private void MoveStartedHandler()
-    {
-        if (_handCardsGos.Count == 0 && _extraCardsGos.Count != 0)
-        {
-            for (int i = 0; i < _extraCardsGos.Count; i++)
-            {
-                _handCardsGos.Add(_extraCardsGos[i]);
-                _handCardsGos[i].SetActive(true);
-            }
-
-            _extraCardsGos.Clear();
-            SetHandCardPositions();
-
-            for (int i = 0; i < _shirtGo.Count; i++)
-            {
-                _shirtGo[i].SetActive(false);
-            }
-        }
-        else if (_extraCardsGos.Count == 0)
-        {
-            PlayerDroppedOut?.Invoke(this);
-            gameObject.SetActive(false);
-        }
-    }
-
     private void SetCardsDraggable(bool value)
     {
         for (int i = 0; i < _handCards.Count; i++)
@@ -231,6 +256,7 @@ public class PlayerField : MonoBehaviour
             _handCardsGos[i].transform.localPosition =
                 new Vector3(indentRight * 0.5f, indentDown * -1f, indentForward * -0.01f);
             _handCardsGos[i].transform.localScale = Vector3.one;
+            _handCardsGos[i].GetComponent<Draggable>().SetStartPosition();
             indentRight++;
             indentForward++;
         }

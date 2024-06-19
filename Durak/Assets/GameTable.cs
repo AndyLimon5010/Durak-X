@@ -8,7 +8,7 @@ public class GameTable : MonoBehaviour
 {
     public static Action<int> GameStarted;
     public static Action EverybodySkipped;
-    public static Action MoveStarted;
+    public static Action MoveEnded;
 
     public static char Trump;
 
@@ -35,8 +35,10 @@ public class GameTable : MonoBehaviour
     private int _nextPlayer;
     private int _skippingPlayersCount = 0;
     private List<PlayerField> _moveQueue = new();
+    private int _playersEndedMoveCount = 0;
 
     private bool _isFirstTurn = true;
+    private int _changeNextPlayerIndex;
 
     private void Awake()
     {
@@ -53,29 +55,31 @@ public class GameTable : MonoBehaviour
     private void OnEnable()
     {
         CardDeck.CardsDistributed += CardsDistributedHandler;
-        PlayerButton.CardsTaking += CardsTakingHandler;
         PlayerButton.AttackSkipping += AttackSkippingHandler;
-        Draggable.CardAttacked += CardAttackedHandler;
-        Draggable.PlayerAttacked += PlayerAttackedHandler;
-        Draggable.PlayerDefended += PlayerDefendedHandler;
+        Playfield.CardsTook += CardsTookHandler;
+        Playfield.CardAttacked += CardAttackedHandler;
+        Playfield.CardDefended += CardDefendedHandler;
         Playfield.AllSeatsOccupied += AllSeatsOccupiedHandler;
+        Playfield.CardTransferring += CardTransferringHandler;
         PlayerField.PlayerDroppedOut += PlayerDroppedOutHandler;
+        PlayerField.PlayerEndedMove += PlayerEndedMoveHandler;
     }
     private void OnDisable()
     {
         CardDeck.CardsDistributed -= CardsDistributedHandler;
-        PlayerButton.CardsTaking -= CardsTakingHandler;
         PlayerButton.AttackSkipping -= AttackSkippingHandler;
-        Draggable.CardAttacked -= CardAttackedHandler;
-        Draggable.PlayerAttacked -= PlayerAttackedHandler;
-        Draggable.PlayerDefended -= PlayerDefendedHandler;
+        Playfield.CardsTook -= CardsTookHandler;
+        Playfield.CardAttacked -= CardAttackedHandler;
+        Playfield.CardDefended -= CardDefendedHandler;
         Playfield.AllSeatsOccupied -= AllSeatsOccupiedHandler;
-        PlayerField.PlayerDroppedOut += PlayerDroppedOutHandler;
+        Playfield.CardTransferring -= CardTransferringHandler;
+        PlayerField.PlayerDroppedOut -= PlayerDroppedOutHandler;
+        PlayerField.PlayerEndedMove -= PlayerEndedMoveHandler;
     }
 
     private void AllSeatsOccupiedHandler()
     {
-        StartMove(1);
+        EndMove(1);
     }
     private void AttackSkippingHandler()
     {
@@ -84,12 +88,28 @@ public class GameTable : MonoBehaviour
         {
             _skippingPlayersCount = 0;
             _playfield.DeleteAllCards();
-            StartMove(1);
+            EndMove(1);
         }
     }
-    private void CardAttackedHandler()
+    private void CardAttackedHandler(GameObject cardGo)
     {
         _skippingPlayersCount = 0;
+
+        PlayerField playerField = cardGo.GetComponentInParent<PlayerField>();
+        if (!_moveQueue.Contains(playerField))
+        {
+            _moveQueue.Add(playerField);
+        }
+    }
+    private void CardDefendedHandler(GameObject cardGo)
+    {
+        _skippingPlayersCount = 0;
+
+        PlayerField playerField = cardGo.GetComponentInParent<PlayerField>();
+        if (!_moveQueue.Contains(playerField))
+        {
+            _moveQueue.Insert(0, playerField);
+        }
     }
     private void CardsDistributedHandler(List<List<GameObject>> decks)
     {
@@ -99,32 +119,58 @@ public class GameTable : MonoBehaviour
         }
         _tableDeck.SetStartingCards(decks[decks.Count - 1]);
 
-        StartMove(0);
+        StartMove();
     }
-    private void CardsTakingHandler(GameObject empty)
+    private void CardTransferringHandler()
     {
-        StartMove(2);
+        _playerFields[_activePlayer - 1].SetAcrivityField(false);
+        SetActivePlayer(1);
+        SetPlayersRoles();
     }
-    private void PlayerAttackedHandler(PlayerField playerField)
+    private void CardsTookHandler()
     {
-        if (!_moveQueue.Contains(playerField))
-        {
-            _moveQueue.Add(playerField);
-        }
-    }
-    private void PlayerDefendedHandler(PlayerField playerField)
-    {
-        if (!_moveQueue.Contains(playerField))
-        {
-            _moveQueue.Insert(0, playerField);
-        }
+        EndMove(2);
     }
     private void PlayerDroppedOutHandler(PlayerField playerField)
     {
+        int playerIndex = _playerFields.IndexOf(playerField);
         _playerFields.Remove(playerField);
+
+        if (_activePlayer == playerIndex + 1)
+        {
+            _activePlayer--;
+            if (_activePlayer == 0)
+            {
+                _activePlayer = _playerFields.Count;
+            }
+        }
+        else if (_activePlayer < playerIndex + 1)
+        {
+            _activePlayer -= 2;
+
+            if (_activePlayer == 0)
+            {
+                _activePlayer = _playerFields.Count;
+            }
+            else if (_activePlayer == -1)
+            {
+                _activePlayer = _playerFields.Count - 1;
+            }
+        }
+        
         if (_playerFields.Count == 1)
         {
             SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        }
+    }
+    private void PlayerEndedMoveHandler()
+    {
+        _playersEndedMoveCount++;
+        if (_playersEndedMoveCount == _playerCount)
+        {
+            _playerCount = _playerFields.Count;
+            _playersEndedMoveCount = 0;
+            StartMove();
         }
     }
 
@@ -202,30 +248,27 @@ public class GameTable : MonoBehaviour
         _moveQueue.Clear();
 
     }
-    private void EndMove()
+    private void EndMove(int changeNextPlayerIndex)
     {
+        _changeNextPlayerIndex = changeNextPlayerIndex;
+        DistributeNewCardsToPlayers();
+        _playerFields[_activePlayer - 1].SetAcrivityField(false);
 
+        MoveEnded?.Invoke();
     }
-    private int SearchPlayerWithMinCard(List<char> suits, List<List<int>> playerMinCards)
+    private int SearchPlayerWithMinCard(char suit, List<List<int>> playerMinCards)
     {
-        int playerNumber = 1;
-        for (int i = 0; i < suits.Count; i++)
-        {
-            int minValue = 15;
-            //!!!!!!!!!!!найти конвертацию напрямую из char в int!!!!!!!!!!!
-            int suitAsInt = Convert.ToInt32(char.GetNumericValue(suits[i]));
-            for (int j = 0; j < _playerCount; j++)
-            {
-                if (playerMinCards[j][suitAsInt - 1] < minValue)
-                {
-                    minValue = playerMinCards[j][suitAsInt - 1];
-                    playerNumber = j + 1;
-                }
-            }
+        int playerNumber = 0;
+        int minValue = 15;
+        //!!!!!!!!!!!найти конвертацию напрямую из char в int!!!!!!!!!!!
+        int suitAsInt = Convert.ToInt32(char.GetNumericValue(suit));
 
-            if (minValue != 15)
+        for (int j = 0; j < _playerCount; j++)
+        {
+            if (playerMinCards[j][suitAsInt - 1] < minValue)
             {
-                break;
+                minValue = playerMinCards[j][suitAsInt - 1];
+                playerNumber = j + 1;
             }
         }
 
@@ -233,8 +276,6 @@ public class GameTable : MonoBehaviour
     }
     private void SetActivePlayer(int changeIndex)
     {
-        DistributeNewCardsToPlayers();
-        _playerFields[_activePlayer - 1].SetAcrivityField(false);
         _activePlayer += changeIndex;
         if (_activePlayer == _playerCount + 1)
         {
@@ -265,7 +306,7 @@ public class GameTable : MonoBehaviour
     private void SetPlayersRoles()
     {
         _playerFields[_activePlayer - 1].SetAcrivityField(true);
-        for (int i = 0; i < _playerFields.Count; i++)
+        for (int i = 0; i < _playerCount; i++)
         {
             _playerFields[i].SetAttack(false);
             _playerFields[i].SetDefense(false);
@@ -285,34 +326,21 @@ public class GameTable : MonoBehaviour
             playerMinCards.Add(_playerFields[i].FindMinCardValues());
         }
 
-        List<char> suitsQueue = new() { '1', '2', '3', '4' };
+        int playerNumber = SearchPlayerWithMinCard(Trump, playerMinCards);
 
-        SetSuitsSearchQueue(suitsQueue);
-
-        int playerNumber = SearchPlayerWithMinCard(suitsQueue, playerMinCards);
+        if (playerNumber == 0)
+        {
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        }
 
         _activePlayer = playerNumber;
         SetNextPlayer();
-    }
-    private void SetSuitsSearchQueue(List<char> suits)
-    {
-        for (int i = 1; i < suits.Count; i++)
-        {
-            if (Trump == suits[i])
-            {
-                char siut = suits[i];
-                suits.RemoveAt(i);
-                suits.Insert(0, siut);
-                break;
-            }
-        }
     }
     private void SetTrump()
     {
         if (Trump == '1')
         {
-            Trump = '0';
-            _trumpText.text = "Масти нет";
+            _trumpText.text = "Пики";
         }
         else if (Trump == '2')
         {
@@ -327,24 +355,21 @@ public class GameTable : MonoBehaviour
             _trumpText.text = "Крести";
         }
     }
-    private void StartMove(int changeNextPlayerIndex)
+    private void StartMove()
     {
-        int maxAttackCardCount = 6;
-
         if (_isFirstTurn == true)
         {
             _isFirstTurn = false;
             SetPlayerQueue();
-            maxAttackCardCount = 5;
+            _playfield.SetMaxAttackCardCount(5);
         }
         else
         {
-            //MoveStarted?.Invoke();
-            SetActivePlayer(changeNextPlayerIndex);
-            maxAttackCardCount = _playerFields[_nextPlayer - 1].GetHandCardsCount();
+            SetActivePlayer(_changeNextPlayerIndex);
+            int maxAttackCardCount = _playerFields[_nextPlayer - 1].GetHandCardsCount();
+            _playfield.SetMaxAttackCardCount(maxAttackCardCount);
         }
 
-        _playfield.SetMaxAttackCardCount(maxAttackCardCount);
         SetPlayersRoles();
     }
 }

@@ -5,9 +5,8 @@ using UnityEngine.Events;
 public class PlayerButton : MonoBehaviour
 {
     public static Action AttackSkipping;
+    public static Action MoveSkipping;
     public static Action<GameObject> CardsTaking;
-
-    public UnityEvent MoveSkipping;
 
     private SpriteRenderer _spriteRenderer;
 
