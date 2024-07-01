@@ -10,6 +10,7 @@ public class Playfield : MonoBehaviour
     public static Action<GameObject> CardAttacked;
     public static Action<GameObject> CardDefended;
     public static Action CardNotPut;
+    public static Func<int, bool> TryingCardTransfer;
     public static Action CardTransferring;
     public static Action<Draggable> CardTransferred;
     public static Action LimitingMove;
@@ -106,8 +107,16 @@ public class Playfield : MonoBehaviour
         if (_cardsValues.Count == 1 && _cardsValues[0] == card.GetValue() &&
             attackCardGo.name == "TransferSpace")
         {
-            CardTransferring?.Invoke();
-            CardTransferred?.Invoke(card.GetComponent<Draggable>());
+            bool canTransfer = TryingCardTransfer.Invoke(_attackCardGos.Count);
+            if (canTransfer == true)
+            {
+                CardTransferring?.Invoke();
+                CardTransferred?.Invoke(card.GetComponent<Draggable>());
+            }
+            else
+            {
+                CardNotPut?.Invoke();
+            }
         }
         else if (attackCardGo.name != "TransferSpace" &&
             attackCard.GetComponentsInChildren<Card>().Length == 1)

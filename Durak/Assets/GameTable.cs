@@ -61,6 +61,7 @@ public class GameTable : MonoBehaviour
         Playfield.CardDefended += CardDefendedHandler;
         Playfield.AllSeatsOccupied += AllSeatsOccupiedHandler;
         Playfield.CardTransferring += CardTransferringHandler;
+        Playfield.TryingCardTransfer += TryingCardTransferHandler;
         PlayerField.PlayerDroppedOut += PlayerDroppedOutHandler;
         PlayerField.PlayerEndedMove += PlayerEndedMoveHandler;
     }
@@ -73,6 +74,7 @@ public class GameTable : MonoBehaviour
         Playfield.CardDefended -= CardDefendedHandler;
         Playfield.AllSeatsOccupied -= AllSeatsOccupiedHandler;
         Playfield.CardTransferring -= CardTransferringHandler;
+        Playfield.TryingCardTransfer -= TryingCardTransferHandler;
         PlayerField.PlayerDroppedOut -= PlayerDroppedOutHandler;
         PlayerField.PlayerEndedMove -= PlayerEndedMoveHandler;
     }
@@ -125,6 +127,8 @@ public class GameTable : MonoBehaviour
     {
         _playerFields[_activePlayer - 1].SetAcrivityField(false);
         SetActivePlayer(1);
+        int maxAttackCardCount = _playerFields[_nextPlayer - 1].GetHandCardsCount();
+        _playfield.SetMaxAttackCardCount(maxAttackCardCount);
         SetPlayersRoles();
     }
     private void CardsTookHandler()
@@ -172,6 +176,21 @@ public class GameTable : MonoBehaviour
             _playersEndedMoveCount = 0;
             StartMove();
         }
+    }
+    private bool TryingCardTransferHandler(int cardCountOnTable)
+    {
+        int possibleNextPlayer = _nextPlayer + 1;
+        if (possibleNextPlayer == 5)
+        {
+            possibleNextPlayer = 1;
+        }
+        int maxAttackCardCount = _playerFields[possibleNextPlayer - 1].GetHandCardsCount();
+        if (cardCountOnTable < maxAttackCardCount)
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private void DisableUnnecessaryPlayers()
@@ -242,6 +261,10 @@ public class GameTable : MonoBehaviour
         {
             Trump = lastCard.GetComponent<Card>().GetSuit();
             SetTrump();
+            if (Trump == '1')
+            {
+                Trump = '0';
+            }
         }
 
         _tableDeck.UpdateDeck(cards);
@@ -333,6 +356,10 @@ public class GameTable : MonoBehaviour
             SceneManager.LoadScene(SceneManager.GetActiveScene().name);
         }
 
+        if (Trump == '1')
+        {
+            Trump = '0';
+        }
         _activePlayer = playerNumber;
         SetNextPlayer();
     }

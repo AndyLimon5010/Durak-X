@@ -138,6 +138,10 @@ public class PlayerField : MonoBehaviour
         if (_isAttack == true)
         {
             _playerButton.SetStatus(1);
+            if (_handCards.Count == 0)
+            {
+                _playerButton.OnMouseUpAsButton();
+            }
             SetCardsDraggable(true);
         }
     }
@@ -147,6 +151,11 @@ public class PlayerField : MonoBehaviour
         {
             SetAttack(true);
             _playerButton.SetStatus(1);
+            
+            if (_handCards.Count == 0)
+            {
+                _playerButton.OnMouseUpAsButton();
+            }
         }
     }
     private void CardAttackedHandler(GameObject cardGo)

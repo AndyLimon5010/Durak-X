@@ -18,7 +18,7 @@ public class PlayerButton : MonoBehaviour
         _spriteRenderer = GetComponent<SpriteRenderer>();
     }
 
-    private void OnMouseUpAsButton()
+    public void OnMouseUpAsButton()
     {
         if (_status == 1)
         {
